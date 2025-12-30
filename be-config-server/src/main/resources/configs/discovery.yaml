@@ -1,0 +1,16 @@
+# Eureka Instance Configuration
+eureka:
+  # Eureka Client Configuration
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+
+  # Eureka Server Configuration
+  server:
+    renewal-percent-threshold: 0.50
+
+# Server Port
+server:
+  port: 8761

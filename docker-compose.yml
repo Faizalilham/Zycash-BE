@@ -1,0 +1,201 @@
+version: '3.8'
+
+services:
+
+  # =====================
+  # DATABASES
+  # =====================
+
+  postgres-transaction:
+    image: postgres:15-alpine
+    container_name: postgres-transaction
+    environment:
+      POSTGRES_DB: ${POSTGRES_TRANSACTION_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_transaction_data:/var/lib/postgresql/data
+    networks:
+      - zycash-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: ${POSTGRES_AUTH_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    networks:
+      - zycash-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================
+  # INFRA
+  # =====================
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - zycash-network
+    profiles:
+      - redis
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: >
+      sh -c "
+        ollama serve &
+        sleep 5 &&
+        ollama pull ${OLLAMA_MODEL} &&
+        wait
+      "
+    networks:
+      - zycash-network
+
+  # =====================
+  # SPRING CLOUD
+  # =====================
+
+  config-server:
+    image: faizalilham/config-server:latest
+    container_name: config-server
+    ports:
+      - "${CONFIG_SERVER_PORT}:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+    networks:
+      - zycash-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      retries: 10
+      start_period: 30s
+
+  discovery-server:
+    image: faizalilham/discovery-server:latest
+    container_name: discovery-server
+    ports:
+      - "${DISCOVERY_SERVER_PORT}:8761"
+    environment:
+      SPRING_APPLICATION_NAME: discovery
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+    depends_on:
+      config-server:
+        condition: service_healthy
+    networks:
+      - zycash-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      retries: 10
+      start_period: 40s
+
+  gateway:
+    image: faizalilham/gateway:latest
+    container_name: gateway
+    ports:
+      - "${GATEWAY_PORT}:8080"
+    environment:
+      SPRING_APPLICATION_NAME: gateway
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    networks:
+      - zycash-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      retries: 5
+      start_period: 40s
+
+  # =====================
+  # BUSINESS SERVICES
+  # =====================
+
+  auth-service:
+    image: faizalilham/auth-service:latest
+    container_name: auth-service
+    ports:
+      - "${AUTH_SERVICE_PORT}:8082"
+    environment:
+      SPRING_APPLICATION_NAME: auth
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SPRING_DATASOURCE_URL: ${AUTH_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    networks:
+      - zycash-network
+
+  transaction-service:
+    image: faizalilham/transaction-service:latest
+    container_name: transaction-service
+    ports:
+      - "${TRANSACTION_SERVICE_PORT}:8081"
+    environment:
+      SPRING_APPLICATION_NAME: transaction
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SPRING_DATASOURCE_URL: ${TRANSACTION_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+      OLLAMA_URL: ${OLLAMA_URL}
+      OLLAMA_MODEL: ${OLLAMA_MODEL}
+      SERP_API_KEY: ${SERP_API_KEY}
+      SERP_API_URL: ${SERP_API_URL}
+    depends_on:
+      postgres-transaction:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - zycash-network
+
+# =====================
+# VOLUMES
+# =====================
+
+volumes:
+  postgres_transaction_data:
+  postgres_auth_data:
+  ollama_data:
+
+# =====================
+# NETWORK
+# =====================
+
+networks:
+  zycash-network:
+    driver: bridge
