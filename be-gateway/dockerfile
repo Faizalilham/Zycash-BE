@@ -1,30 +1,44 @@
+# =========================
+# 1️⃣ Build Stage
+# =========================
 FROM eclipse-temurin:17-jdk-alpine AS build
-WORKDIR /app
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle.kts .
-COPY settings.gradle.kts .
-COPY src src
-RUN chmod +x ./gradlew
-RUN ./gradlew bootJar --no-daemon
 
+WORKDIR /app
+
+# Copy file Maven wrapper & config dulu (biar cache optimal)
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+
+RUN chmod +x mvnw
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code
+COPY src src
+
+# Build jar
+RUN ./mvnw clean package -DskipTests
+
+# =========================
+# 2️⃣ Runtime Stage
+# =========================
 FROM eclipse-temurin:17-jre-alpine
 
-# Install wget untuk health check
+# Install wget & curl for healthcheck
 RUN apk add --no-cache wget curl
 
 WORKDIR /app
 
 # Copy JAR dari build stage
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
-# Buat folder untuk APK
+# Optional folder
 RUN mkdir -p /app/images
 
-EXPOSE 8080
+EXPOSE 8081
 
-# Health check
+# Health check (Spring Boot Actuator)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health || exit 1
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
