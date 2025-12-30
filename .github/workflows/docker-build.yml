@@ -1,0 +1,62 @@
+name: Build & Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Login ke Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 3. Build & Push Config Server
+      - name: Build & Push Config Server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-config-server
+          push: true
+          tags: faizalilham/config-server:latest
+
+      # 4. Discovery Server
+      - name: Build & Push Discovery Server
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-discovery
+          push: true
+          tags: faizalilham/discovery-server:latest
+
+      # 5. Gateway
+      - name: Build & Push Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-gateway
+          push: true
+          tags: faizalilham/gateway:latest
+
+      # 6. Auth Service
+      - name: Build & Push Auth Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-auth
+          push: true
+          tags: faizalilham/auth-service:latest
+
+      # 7. Transaction Service
+      - name: Build & Push Transaction Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-transaction
+          push: true
+          tags: faizalilham/transaction-service:latest
