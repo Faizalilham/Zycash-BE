@@ -1,11 +1,11 @@
 # =========================
 # 1️⃣ Build Stage
 # =========================
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 
 WORKDIR /app
 
-# Copy file Maven wrapper & config dulu (biar cache optimal)
+# Copy Maven wrapper & pom dulu (cache friendly)
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
@@ -13,7 +13,7 @@ COPY pom.xml .
 RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline -B
 
-# Copy source code
+# Copy source
 COPY src src
 
 # Build jar
@@ -22,23 +22,29 @@ RUN ./mvnw clean package -DskipTests
 # =========================
 # 2️⃣ Runtime Stage
 # =========================
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
-# Install wget & curl for healthcheck
+# Tools for healthcheck
 RUN apk add --no-cache wget curl
 
 WORKDIR /app
 
-# Copy JAR dari build stage
+# Copy jar
 COPY --from=build /app/target/*.jar app.jar
 
-# Optional folder
+# Optional directory
 RUN mkdir -p /app/images
 
-EXPOSE 8081
+EXPOSE 8080
 
-# Health check (Spring Boot Actuator)
+# Healthcheck (Spring Boot Actuator)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# JVM optimasi untuk container
+ENTRYPOINT ["java",
+  "-XX:+UseContainerSupport",
+  "-XX:MaxRAMPercentage=75",
+  "-jar",
+  "app.jar"
+]
