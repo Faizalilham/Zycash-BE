@@ -9,16 +9,14 @@ spring:
         - id: transaction-service
           uri: lb://transaction
           predicates:
-            - Path=/transaction-service/**
+            - Path=/api/transaction/**
           filters:
-            - StripPrefix=1
+            - AuthFilter
 
         - id: auth-service
           uri: lb://auth
           predicates:
-            - Path=/auth-service/**
-          filters:
-            - StripPrefix=1
+            - Path=/api/verif/**
 
 server:
   port: 8080

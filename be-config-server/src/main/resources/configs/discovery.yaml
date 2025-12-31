@@ -1,5 +1,7 @@
 # Eureka Instance Configuration
 eureka:
+  instance:
+    hostname: discovery-server
   # Eureka Client Configuration
   client:
     register-with-eureka: false
