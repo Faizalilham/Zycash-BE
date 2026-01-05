@@ -19,6 +19,7 @@ services:
       - postgres_transaction_data:/var/lib/postgresql/data
     networks:
       - zycash-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -38,6 +39,47 @@ services:
       - postgres_auth_data:/var/lib/postgresql/data
     networks:
       - zycash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-report:
+    image: postgres:15-alpine
+    container_name: postgres-report
+    environment:
+      POSTGRES_DB: ${POSTGRES_REPORT_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_report_data:/var/lib/postgresql/data
+    networks:
+      - zycash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-notification:
+    image: postgres:15-alpine
+    container_name: postgres-notification
+    environment:
+      POSTGRES_DB: ${POSTGRES_NOTIFICATION_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    networks:
+      - zycash-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -48,6 +90,42 @@ services:
   # INFRA
   # =====================
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - zycash-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - zycash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -55,6 +133,7 @@ services:
       - "6379:6379"
     networks:
       - zycash-network
+    restart: unless-stopped
     profiles:
       - redis
 
@@ -65,71 +144,84 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    command: >
-      sh -c "
-        ollama serve &
-        sleep 5 &&
-        ollama pull ${OLLAMA_MODEL} &&
-        wait
-      "
     networks:
       - zycash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # =====================
   # SPRING CLOUD
   # =====================
 
   config-server:
-    image: faizalilham/config-server:latest
+    image: ${DOCKER_USERNAME}/config-server:${IMAGE_TAG}
     container_name: config-server
     ports:
       - "${CONFIG_SERVER_PORT}:8888"
     environment:
       SPRING_PROFILES_ACTIVE: native
+      SERVER_PORT: 8888
     networks:
       - zycash-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
       interval: 10s
+      timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 40s
 
   discovery-server:
-    image: faizalilham/discovery-server:latest
+    image: ${DOCKER_USERNAME}/discovery-server:${IMAGE_TAG}
     container_name: discovery-server
     ports:
       - "${DISCOVERY_SERVER_PORT}:8761"
     environment:
       SPRING_APPLICATION_NAME: discovery
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SERVER_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: discovery-server
     depends_on:
       config-server:
         condition: service_healthy
     networks:
       - zycash-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 10s
+      timeout: 5s
       retries: 10
       start_period: 40s
 
   gateway:
-    image: faizalilham/gateway:latest
+    image: ${DOCKER_USERNAME}/gateway:${IMAGE_TAG}
     container_name: gateway
     ports:
       - "${GATEWAY_PORT}:8080"
     environment:
       SPRING_APPLICATION_NAME: gateway
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SERVER_PORT: 8080
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+      EUREKA_INSTANCE_HOSTNAME: gateway
     depends_on:
+      config-server:
+        condition: service_healthy
       discovery-server:
         condition: service_healthy
     networks:
       - zycash-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 40s
 
@@ -138,50 +230,138 @@ services:
   # =====================
 
   auth-service:
-    image: faizalilham/auth-service:latest
+    image: ${DOCKER_USERNAME}/auth-service:${IMAGE_TAG}
     container_name: auth-service
     ports:
       - "${AUTH_SERVICE_PORT}:8082"
     environment:
       SPRING_APPLICATION_NAME: auth
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: ${AUTH_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+      EUREKA_INSTANCE_HOSTNAME: auth-service
     depends_on:
-      postgres-auth:
+      config-server:
         condition: service_healthy
       discovery-server:
         condition: service_healthy
+      postgres-auth:
+        condition: service_healthy
     networks:
       - zycash-network
+    restart: unless-stopped
 
   transaction-service:
-    image: faizalilham/transaction-service:latest
+    image: ${DOCKER_USERNAME}/transaction-service:${IMAGE_TAG}
     container_name: transaction-service
     ports:
       - "${TRANSACTION_SERVICE_PORT}:8081"
     environment:
       SPRING_APPLICATION_NAME: transaction
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: ${TRANSACTION_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+      EUREKA_INSTANCE_HOSTNAME: transaction-service
       OLLAMA_URL: ${OLLAMA_URL}
       OLLAMA_MODEL: ${OLLAMA_MODEL}
       SERP_API_KEY: ${SERP_API_KEY}
       SERP_API_URL: ${SERP_API_URL}
     depends_on:
-      postgres-transaction:
+      config-server:
         condition: service_healthy
       discovery-server:
+        condition: service_healthy
+      postgres-transaction:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       ollama:
         condition: service_started
     networks:
       - zycash-network
+    restart: unless-stopped
+  
+  report-service:
+    image: ${DOCKER_USERNAME}/report-service:${IMAGE_TAG}
+    container_name: report-service
+    ports:
+      - "${REPORT_SERVICE_PORT}:8083"
+    environment:
+      SPRING_APPLICATION_NAME: report
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: ${REPORT_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+      EUREKA_INSTANCE_HOSTNAME: report-service
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      postgres-report:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - zycash-network
+    restart: unless-stopped
+
+  notification-service:
+    image: ${DOCKER_USERNAME}/notification-service:${IMAGE_TAG}
+    container_name: notification-service
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT}:8084"
+    environment:
+      SPRING_APPLICATION_NAME: notification
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:${CONFIG_SERVER_PORT}
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: ${NOTIFICATION_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_URL}
+      EUREKA_INSTANCE_HOSTNAME: notification-service
+      # Scheduled notification configs
+      SCHEDULE_NO_INCOME: ${SCHEDULE_NO_INCOME}
+      SCHEDULE_DAILY_SUMMARY: ${SCHEDULE_DAILY_SUMMARY}
+      SCHEDULE_BUDGET_ALERT: ${SCHEDULE_BUDGET_ALERT}
+      SCHEDULE_BILL_REMINDER: ${SCHEDULE_BILL_REMINDER}
+      SCHEDULE_WEEKLY_REPORT: ${SCHEDULE_WEEKLY_REPORT}
+      SCHEDULE_CLEANUP: ${SCHEDULE_CLEANUP}
+      NOTIFICATION_RETENTION_DAYS: ${NOTIFICATION_RETENTION_DAYS}
+      BUDGET_ALERT_THRESHOLD: ${BUDGET_ALERT_THRESHOLD}
+      HIGH_AMOUNT_THRESHOLD: ${HIGH_AMOUNT_THRESHOLD}
+      WARNING_AMOUNT_THRESHOLD: ${WARNING_AMOUNT_THRESHOLD}
+      WEBSOCKET_ALLOWED_ORIGINS: ${WEBSOCKET_ALLOWED_ORIGINS}
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      postgres-notification:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - zycash-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
 
 # =====================
 # VOLUMES
@@ -189,12 +369,15 @@ services:
 
 volumes:
   postgres_transaction_data:
+    driver: local
   postgres_auth_data:
+    driver: local
+  postgres_report_data:
+    driver: local
+  postgres_notification_data:
+    driver: local
   ollama_data:
-
-# =====================
-# NETWORK
-# =====================
+    driver: local
 
 networks:
   zycash-network:
