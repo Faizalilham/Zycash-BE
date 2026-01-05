@@ -29,9 +29,9 @@ ZyCash adalah sistem manajemen keuangan berbasis AI yang menggunakan **Ollama (L
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          CLIENT LAYER                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
-│  │ Web Client   │  │ Mobile App   │  │ Admin Panel  │             │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
+│  │ Web Client   │  │ Mobile App   │  │ Admin Panel  │               │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │
 │         └──────────────────┴──────────────────┘                     │
 └─────────────────────────────┬───────────────────────────────────────┘
                               │ HTTPS/REST
@@ -55,8 +55,8 @@ ZyCash adalah sistem manajemen keuangan berbasis AI yang menggunakan **Ollama (L
 │ │ OAuth2    │ │   │ │ Category     │ │   │ │ Charts      │ │
 │ └───────────┘ │   │ └──────────────┘ │   │ └─────────────┘ │
 └───────┬───────┘   └────────┬─────────┘   └────────┬────────┘
-        │                    │                       │
-        ↓                    ↓                       ↓
+        │                    │                      │
+        ↓                    ↓                      ↓
 ┌───────────────┐   ┌──────────────────┐   ┌─────────────────┐
 │ postgres-auth │   │ postgres-        │   │ postgres-report │
 │ (:5433)       │   │ transaction      │   │ (:5435)         │
@@ -207,33 +207,33 @@ ZyCash adalah sistem manajemen keuangan berbasis AI yang menggunakan **Ollama (L
 
 ```
 Transaction Service (Producer)
-    │
-    │ Publish Event
-    ↓
-┌─────────────────────────────────────┐
-│ Topic: transaction-events           │
-│ Event: TRANSACTION_CREATED          │
-│ {                                   │
-│   "eventId": "evt-123",             │
-│   "transactionId": 456,             │
-│   "userId": "usr-789",              │
-│   "amount": 150000,                 │
-│   "category": "Utilities",          │
-│   "timestamp": "2026-01-03T10:00"   │
-│ }                                   │
-└─────────────────────────────────────┘
-    │
-    ├─────────────────┬──────────────────┐
-    ↓                 ↓                  
-┌─────────────┐  ┌──────────────┐  
-│ Report      │  │ Notification │  
-│ Service     │  │ Service      │  
-│             │  │              │  
-│ - Update    │  │ - Send email │  
-│   stats     │  │ - Push notif │  
-│ - Generate  │  │ - Log event  │  
-│   reports   │  │              │  
-└─────────────┘  └──────────────┘
+            │
+            │  Publish Event
+            ▼
+┌─────────────────────────────────────────┐
+│ Topic: transaction-events               │
+│ Event: TRANSACTION_CREATED              │
+│                                         │
+│ {                                       │
+│   "eventId": "evt-123",                 │
+│   "transactionId": 456,                 │
+│   "userId": "usr-789",                  │
+│   "amount": 150000,                     │
+│   "category": "Utilities",              │
+│   "timestamp": "2026-01-03T10:00"       │
+│ }                                       │
+└─────────────────────────────────────────┘
+                     │
+          ┌──────────┴──────────┐
+          ▼                     ▼
+┌─────────────────┐   ┌──────────────────┐
+│ Report Service  │   │ Notification     │
+│                 │   │ Service          │
+│ - Update stats  │   │ - Send email     │
+│ - Generate      │   │ - Push notif     │
+│   reports       │   │ - Log event      │
+└─────────────────┘   └──────────────────┘
+
 ```
 
 ---
