@@ -13,6 +13,20 @@ spring:
           filters:
             - AuthFilter
 
+        - id: report-service
+          uri: lb://report
+          predicates:
+            - Path=/api/reports/**
+          filters:
+            - AuthFilter
+
+        - id: notification-service
+          uri: lb://notification
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - AuthFilter
+
         - id: auth-service
           uri: lb://auth
           predicates:
@@ -26,6 +40,15 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://eureka-server:8761/eureka/  # TAMBAHKAN INI
+      defaultZone: http://eureka-server:8761/eureka/
   instance:
     prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

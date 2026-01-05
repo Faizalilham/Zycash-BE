@@ -1,0 +1,98 @@
+spring:
+  # Database Configuration (PostgreSQL for report data)
+  datasource:
+    url: ${REPORT_DB_URL:jdbc:postgresql://localhost:5434/report_db}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+  
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: report-service-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: transactionEvent:com.example.report.dto.TransactionEvent
+    listener:
+      ack-mode: manual
+
+# Server Configuration
+server:
+  port: ${REPORT_SERVICE_PORT:8083}
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+# Report Configuration
+report:
+  # Category colors for pie chart
+  category-colors:
+    MAKANAN: "#FF6384"
+    TRANSPORT: "#36A2EB"
+    BELANJA: "#FFCE56"
+    TAGIHAN: "#4BC0C0"
+    HIBURAN: "#9966FF"
+    KESEHATAN: "#FF9F40"
+    PENDIDIKAN: "#FF6384"
+    LAINNYA: "#C9CBCF"
+  
+  # Report generation schedule
+  schedule:
+    # Auto-generate monthly report - 1st day of month at 00:00
+    monthly-report: ${SCHEDULE_MONTHLY_REPORT:0 0 0 1 * *}
+    # Auto-generate yearly report - 1st January at 00:00
+    yearly-report: ${SCHEDULE_YEARLY_REPORT:0 0 0 1 1 *}
+  
+  # Data retention
+  summary-retention-months: ${SUMMARY_RETENTION_MONTHS:12}
+  
+  # Pagination defaults
+  default-page-size: ${DEFAULT_PAGE_SIZE:20}
+  max-page-size: ${MAX_PAGE_SIZE:100}
+  
+  # Cache configuration
+  cache:
+    enabled: ${CACHE_ENABLED:true}
+    ttl-seconds: ${CACHE_TTL:300}
+
+# Transaction Service URL (for data sync)
+services:
+  transaction:
+    url: ${TRANSACTION_SERVICE_URL:http://transaction-service:8081}
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging Configuration
+logging:
+  level:
+    com.example.report: ${LOG_LEVEL:DEBUG}
+    org.springframework.web: INFO
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG

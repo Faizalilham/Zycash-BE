@@ -1,11 +1,13 @@
 package com.zycash.betransaction.service
 
+import com.zycash.betransaction.common.TransactionEvent
 import com.zycash.betransaction.constant.Constant
 import com.zycash.betransaction.dto.Response
 import com.zycash.betransaction.dto.TransactionRequest
 import com.zycash.betransaction.model.Transaction
 import com.zycash.betransaction.repository.TransactionRepository
 import org.slf4j.LoggerFactory
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -14,10 +16,15 @@ import java.time.LocalDateTime
 class TransactionService(
     private val transactionRepository: TransactionRepository,
     private val ollamaService: OllamaService,
-    private val priceEnrichmentService: PriceEnrichmentService
+    private val priceEnrichmentService: PriceEnrichmentService,
+    private val kafkaTemplate: KafkaTemplate<String, TransactionEvent>
 ) {
 
     private val log = LoggerFactory.getLogger(TransactionService::class.java)
+
+    companion object {
+        const val TOPIC_TRANSACTION_EVENTS = "transaction-events"
+    }
 
     @Transactional
     fun createTransaction(request: TransactionRequest): Response<List<Transaction>> {
@@ -82,7 +89,11 @@ class TransactionService(
                         originalText = request.text,
                         transactionDate = LocalDateTime.now()
                     )
-                    savedTransactions.add(transactionRepository.save(transaction))
+                    val saved = transactionRepository.save(transaction)
+                    savedTransactions.add(saved)
+
+                    // ✅ Step 5: Publish event ke Kafka untuk setiap transaction
+                    publishTransactionEvent(saved)
                 } else {
                     skippedTransactions.add(parsedTx.description)
                 }
@@ -90,7 +101,7 @@ class TransactionService(
 
             log.info("Saved ${savedTransactions.size} transactions, skipped ${skippedTransactions.size}")
 
-            // Step 5: Build response
+            // Step 6: Build response
             val message = buildResponseMessage(savedTransactions, skippedTransactions)
             val warnings = if (skippedTransactions.isNotEmpty()) {
                 listOf("Beberapa transaksi memerlukan konfirmasi harga: ${skippedTransactions.joinToString(", ")}")
@@ -109,6 +120,26 @@ class TransactionService(
                 responseMessage = "Internal Server Error",
                 errorList = listOf(e.message ?: "Failed to process transaction")
             )
+        }
+    }
+
+    private fun publishTransactionEvent(transaction: Transaction) {
+        try {
+            val event = TransactionEvent(
+                eventType = "TRANSACTION_CREATED",
+                transactionId = transaction.id!!,
+                userId = "888",
+                category = transaction.category,
+                amount = transaction.amount,
+                description = transaction.description,
+                timestamp = LocalDateTime.now()
+            )
+
+            kafkaTemplate.send(TOPIC_TRANSACTION_EVENTS, transaction.id.toString(), event)
+            log.info("Published transaction event for ID: ${transaction.id}")
+        } catch (e: Exception) {
+            log.error("Failed to publish transaction event", e)
+            // Don't throw - event publishing failure shouldn't fail the transaction
         }
     }
 

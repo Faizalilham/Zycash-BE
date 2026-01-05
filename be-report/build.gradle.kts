@@ -22,30 +22,19 @@ repositories {
 extra["springCloudVersion"] = "2025.1.0"
 
 dependencies {
-	// Spring Boot Starters
+
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-	implementation("org.springframework.boot:spring-boot-starter-validation")
 
-	// PostgreSQL
-	runtimeOnly("org.postgresql:postgresql")
-
-	// Spring Cloud
-	implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
-	implementation("org.springframework.cloud:spring-cloud-starter-config")
-
-	// Kotlin
-	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
-	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-
-	// Testing
+	implementation("org.springframework.cloud:spring-cloud-starter-config")
+	implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
+	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
-	// Kafka
-
+	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.springframework.kafka:spring-kafka")
 }
 

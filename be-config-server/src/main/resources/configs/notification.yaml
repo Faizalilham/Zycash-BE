@@ -1,0 +1,100 @@
+spring:
+  # Database Configuration (PostgreSQL for notification history)
+  datasource:
+    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5436/notification_db}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: transactionEvent:com.example.notification.dto.TransactionEvent
+    listener:
+      ack-mode: manual
+
+# Server Configuration
+server:
+  port: ${NOTIFICATION_SERVICE_PORT:8084}
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+# WebSocket Configuration
+websocket:
+  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:*}
+  endpoint: /ws
+
+# Scheduled Notification Configuration
+notification:
+  schedule:
+    # No income check - every day at 15:00
+    no-income-check: ${SCHEDULE_NO_INCOME:0 0 15 * * *}
+    # Daily summary - every day at 21:00
+    daily-summary: ${SCHEDULE_DAILY_SUMMARY:0 0 21 * * *}
+    # Budget alert - every hour
+    budget-alert: ${SCHEDULE_BUDGET_ALERT:0 0 * * * *}
+    # Bill reminder - every day at 09:00
+    bill-reminder: ${SCHEDULE_BILL_REMINDER:0 0 9 * * *}
+    # Weekly report - every Sunday at 10:00
+    weekly-report: ${SCHEDULE_WEEKLY_REPORT:0 0 10 * * SUN}
+    # Cleanup old notifications - every midnight
+    cleanup: ${SCHEDULE_CLEANUP:0 0 0 * * *}
+
+  # Notification retention (days)
+  retention-days: ${NOTIFICATION_RETENTION_DAYS:30}
+
+  # Budget threshold (percentage)
+  budget-alert-threshold: ${BUDGET_ALERT_THRESHOLD:80}
+
+  # High amount threshold for instant alert
+  high-amount-threshold: ${HIGH_AMOUNT_THRESHOLD:100000}
+  warning-amount-threshold: ${WARNING_AMOUNT_THRESHOLD:500000}
+
+# Transaction Service URL (for API calls)
+services:
+  transaction:
+    url: ${TRANSACTION_SERVICE_URL:http://transaction-service:8081}
+  report:
+    url: ${REPORT_SERVICE_URL:http://report-service:8083}
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,scheduledtasks
+  endpoint:
+    health:
+      show-details: always
+
+# Logging Configuration
+logging:
+  level:
+    com.example.notification: ${LOG_LEVEL:DEBUG}
+    org.springframework.web: INFO
+    org.springframework.kafka: INFO
+    org.springframework.messaging: INFO
+    ua.naiksoftware.stomp: DEBUG
