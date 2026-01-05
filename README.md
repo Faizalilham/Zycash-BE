@@ -287,7 +287,7 @@ zycash-be/
 │           ├── java/
 │           │   └── com/zycash/auth/
 │
-├── 📁 be-transaction/             # Transaction Service (AI-Powered)
+├── 📁 be-transaction/             # Transaction Service (AI-Powered with ollama)
 │   ├── Dockerfile
 │   ├── build.gradle
 │   └── src/
@@ -311,10 +311,8 @@ zycash-be/
 │           ├── java/
 │           │   └── com/zycash/notification/
 │
-├── 📄 docker-compose.yml          # Local Development
-├── 📄 docker-compose.prod.yml     # Production Deployment
-├── 📄 .env.example                # Environment Variables Template
-├── 📄 build-push.bat              # Build & Push Script
+├── 📄 docker-compose.yml          # Prod Development, local soon ye
+├── 📄 .env.example                # Environment Variables 
 ├── 📄 .gitignore
 └── 📄 README.md
 ```
