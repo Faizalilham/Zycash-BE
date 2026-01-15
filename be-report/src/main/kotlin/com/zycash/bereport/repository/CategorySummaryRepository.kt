@@ -1,6 +1,6 @@
 package com.zycash.bereport.repository
 
-import com.example.report.model.CategorySummary
+
 import com.zycash.bereport.model.CategorySummary
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query

@@ -19,7 +19,7 @@ repositories {
 	mavenCentral()
 }
 
-extra["springCloudVersion"] = "2025.1.0"
+extra["springCloudVersion"] = "2023.0.3"
 
 dependencies {
 

@@ -1,7 +1,8 @@
 package com.zycash.benotification.consumer
 
-import com.example.notification.dto.TransactionEvent
-import com.example.notification.service.NotificationService
+
+import com.zycash.benotification.dto.TransactionEvent
+import com.zycash.benotification.service.NotificationService
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
