@@ -1,6 +1,7 @@
 package com.zycash.benotification.config
 
-import com.example.notification.dto.TransactionEvent
+
+import com.zycash.benotification.dto.TransactionEvent
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.springframework.beans.factory.annotation.Value
@@ -26,7 +27,7 @@ class KafkaConsumerConfig {
             ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG to JsonDeserializer::class.java,
             ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "latest",
             JsonDeserializer.TRUSTED_PACKAGES to "*",
-            JsonDeserializer.VALUE_DEFAULT_TYPE to "com.example.notification.dto.TransactionEvent"
+            JsonDeserializer.VALUE_DEFAULT_TYPE to "com.zycash.benotification.dto.TransactionEvent"
         )
         return DefaultKafkaConsumerFactory(
             props,

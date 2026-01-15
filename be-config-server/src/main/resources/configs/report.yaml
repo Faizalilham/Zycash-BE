@@ -26,7 +26,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
-        spring.json.type.mapping: transactionEvent:com.zycash.betransaction.common.TransactionEvent
+        spring.json.type.mapping: transactionEvent:com.zycash.bereport.dto.TransactionEvent
     listener:
       ack-mode: manual
 
