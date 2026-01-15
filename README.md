@@ -24,7 +24,7 @@ ZyCash adalah sistem manajemen keuangan berbasis AI yang menggunakan **Ollama (L
 
 ## 🏗️ Arsitektur Aplikasi
 
-### High-Level Architecture
+### Simple Architecture
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
@@ -341,11 +341,12 @@ zycash-be/
 - Git
 
 ### Production Server (Ubuntu)
-- Ubuntu 20.04 LTS or higher
+- Laptop With Ubuntu server 
+- Tailscale
 - Docker 20.x+
 - Docker Compose 2.x+
 - Minimum 4GB RAM
-- 20GB Storage
+- +- 16GB Storage
 
 ---
 
@@ -470,7 +471,7 @@ docker-compose logs --tail=100 transaction-service
 
 ### Service Discovery (Eureka)
 
-Open browser: `http://13.211.208.46:8761/`
+Open browser: `https://fz-ubntsrv.tail0ca5e2.ts.net:8761/`
 
 Akan menampilkan semua registered services.
 

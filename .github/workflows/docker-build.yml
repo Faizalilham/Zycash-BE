@@ -60,3 +60,19 @@ jobs:
           context: ./be-transaction
           push: true
           tags: faizalilham/transaction-service:latest
+
+      # 8. Report Service
+      - name: Build & Push Report Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-report
+          push: true
+          tags: faizalilham/report-service:latest
+
+      # 9. Notification Service
+      - name: Build & Push Notification Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be-notification
+          push: true
+          tags: faizalilham/notification-service:latest

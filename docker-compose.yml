@@ -2,6 +2,19 @@ version: '3.8'
 
 services:
 
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "8001:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+    networks:
+      - zycash-network
+    restart: unless-stopped
+    depends_on:
+      - gateway
+
   # =====================
   # DATABASES
   # =====================
